@@ -1,4 +1,4 @@
-# -harishrao1846-ME_QTRIPDYNAMIC
+#_QTRIPDYNAMIC
 
 
 link --  https://qtripdynamic-rh.netlify.app/
