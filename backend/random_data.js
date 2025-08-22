@@ -1,4 +1,3 @@
-
 let places = [
   "Baycombe",
   "Rdagas",
@@ -300,9 +299,53 @@ let places = [
   "Bubewd",
   "Ing",
   "North Ldeztidsils",
+  "Emerald Bay",
+  "Crystal Cove",
+  "Golden Dunes",
+  "Whispering Pines",
+  "Silver Falls",
+  "Mystic Ridge",
+  "Azure Shores",
+  "Sunset Valley",
+  "Hidden Canyon",
+  "Moonstone Beach",
+  "Evergreen Meadows",
+  "Lunar Lake",
+  "Sapphire Springs",
+  "Coral Point",
+  "Twilight Cliffs",
+  "Starlight Haven",
+  "Maplewood Trail",
+  "Echo Caverns",
+  "Frostpeak Summit",
+  "Wildflower Grove",
+  "Riverbend Crossing",
+  "Horizon Bluffs",
+  "Sunhaven Isles",
+  "Cedarbrook Hollow",
+  "Glacier Pass",
+  "Timberline Ridge",
+  "Cascade Bay",
+  "Ivory Coast",
+  "Breezewood Hills",
 ];
 
 let images = [
+  "https://images.pexels.com/photos/34950/pexels-photo.jpg?auto=compress&cs=tinysrgb&h=650&w=940", // Scenic mountain view
+  "https://images.pexels.com/photos/210186/pexels-photo-210186.jpeg?auto=compress&cs=tinysrgb&h=650&w=940", // Sunset beach
+  "https://images.pexels.com/photos/147411/pexels-photo-147411.jpeg?auto=compress&cs=tinysrgb&h=650&w=940", // Forest trail
+  "https://images.pexels.com/photos/3408744/pexels-photo-3408744.jpeg?auto=compress&cs=tinysrgb&h=650&w=940", // Desert canyon
+  "https://images.pexels.com/photos/1365425/pexels-photo-1365425.jpeg?auto=compress&cs=tinysrgb&h=650&w=940", // Snow mountain
+  "https://images.pexels.com/photos/35600/road-sun-rays-path.jpg?auto=compress&cs=tinysrgb&h=650&w=940", // Road trip
+  "https://images.pexels.com/photos/1064162/pexels-photo-1064162.jpeg?auto=compress&cs=tinysrgb&h=650&w=940", // Lake reflection
+  "https://images.pexels.com/photos/210415/pexels-photo-210415.jpeg?auto=compress&cs=tinysrgb&h=650&w=940", // Tropical coast
+  "https://images.pexels.com/photos/2101867/pexels-photo-2101867.jpeg?auto=compress&cs=tinysrgb&h=650&w=940", // Rocky cliffs
+  "https://images.pexels.com/photos/417173/pexels-photo-417173.jpeg?auto=compress&cs=tinysrgb&h=650&w=940", // Night sky camping
+  "https://images.pexels.com/photos/3408741/pexels-photo-3408741.jpeg?auto=compress&cs=tinysrgb&h=650&w=940", // Canyon landscape
+  "https://images.pexels.com/photos/145939/pexels-photo-145939.jpeg?auto=compress&cs=tinysrgb&h=650&w=940", // Snow forest
+  "https://images.pexels.com/photos/325807/pexels-photo-325807.jpeg?auto=compress&cs=tinysrgb&h=650&w=940", // Boats on river
+  "https://images.pexels.com/photos/2437295/pexels-photo-2437295.jpeg?auto=compress&cs=tinysrgb&h=650&w=940", // Cliffside ocean
+  "https://images.pexels.com/photos/1118873/pexels-photo-1118873.jpeg?auto=compress&cs=tinysrgb&h=650&w=940", // Jungle trail
   "https://images.pexels.com/photos/130576/pexels-photo-130576.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
   "https://images.pexels.com/photos/2132180/pexels-photo-2132180.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
   "https://images.pexels.com/photos/45987/pexels-photo-45987.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
