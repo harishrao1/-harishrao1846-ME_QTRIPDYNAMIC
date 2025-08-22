@@ -1,110 +1,128 @@
 import config from "../conf/index.js";
 
-//Implementation of fetch call to fetch all reservations
-async function fetchReservations() {
-  // TODO: MODULE_RESERVATIONS
-  // 1. Fetch Reservations by invoking the REST API and return them
-  try{
- let res = await fetch(config.backendEndpoint +"/reservations/");
-
- let data = await res.json();
-// console.log(data);
- return data;
-}
-catch(error){
-
-  return null;
-}
-  // Place holder for functionality to work in the Stubs
- // return null;
-
+// --- API ---
+export async function fetchReservations() {
+  try {
+    const res = await fetch(`${config.backendEndpoint}/reservations`, {
+      method: "GET",
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
 }
 
-//Function to add reservations to the table. Also; in case of no reservations, display the no-reservation-banner, else hide it.
-function addReservationToTable(reservations) {
-  // TODO: MODULE_RESERVATIONS
-  // 1. Add the Reservations to the HTML DOM so that they show up in the table
+// --- Date/Time helpers (IST) ---
+const dateFmt = new Intl.DateTimeFormat("en-IN", {
+  timeZone: "Asia/Kolkata",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
 
-  //Conditionally render the no-reservation-banner and reservation-table-parent
+const timeFmt = new Intl.DateTimeFormat("en-IN", {
+  timeZone: "Asia/Kolkata",
+  day: "2-digit",
+  month: "long",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: true,
+});
 
-  /*
-    Iterating over reservations, adding it to table (into div with class "reservation-table") and link it correctly to respective adventure
-    The last column of the table should have a "Visit Adventure" button with id=<reservation-id>, class=reservation-visit-button and should link to respective adventure page
-
-    Note:
-    1. The date of adventure booking should appear in the format D/MM/YYYY (en-IN format) Example:  4/11/2020 denotes 4th November, 2020
-    2. The booking time should appear in a format like 4 November 2020, 9:32:31 pm
-  */
-
-    let reservationTable = document.getElementById("reservation-table");
-
-
-  if(reservations.length > 0){
-    document.getElementById("no-reservation-banner").style.display = "none";
-    document.getElementById("reservation-table-parent").style.display = "block";
-
-}
-else{
-  document.getElementById("no-reservation-banner").style.display = "block";
-  document.getElementById("reservation-table-parent").style.display = "none";
-
-} 
-  // let reservationTable = document.getElementById("reservation-table");
-    reservations.map((ele) => {
-      let newElement = document.createElement("tr");
-      // console.log(newElement);
-      console.log(ele.time);
-      //console.log(ele.adventure);
-
-      let datestr = ele.date;
-      let date = new Date(datestr);
-      let formattedDate = date.toLocaleDateString('en-IN', { year: 'numeric', month: 'numeric', day: 'numeric' });
-      
-      console.log(formattedDate); // Output: "02/17/2023"
-      
-      
-      let dateStr = ele.time;
-      let time = new Date(dateStr);
-      let formattedTime = time.toLocaleString('en-IN', { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric', 
-        hour: 'numeric', 
-        minute: 'numeric', 
-        second: '2-digit', 
-        hour12: true 
-      });
-      
-      // console.log(formattedTime); // Output: "11/4/2023, 9:32:31 PM"
-      let result = formattedTime;
-      result = result.replace(" at ",", ");
-
-      console.log(result); // Output: "February 3, 2023, 4:11:13 PM"
-
-
-
-
-
-      newElement.innerHTML = `
-      <th>${ele.id}</th>
-      <td>${ele.name}</td>
-      <td>${ele.adventureName}</td>
-      <td>${ele.person}</td>
-      <td>${formattedDate}</td>
-      <td>${ele.price}</td>
-      <td>${result}</td>
-      <td>
-        <div class="reservation-visit-button" id=${ele.id}>
-          <a href="../detail/?adventure=${ele.adventure}">Visit Adventure</a>
-         </div>
-      </td>
-      `
-      // console.log(newElement);
-      reservationTable.appendChild(newElement);
-    })
-
-    
-
+function fmtDateYMD(str) {
+  const d = new Date(str);
+  return isNaN(d) ? "" : dateFmt.format(d); // dd/mm/yyyy
 }
 
-export { fetchReservations, addReservationToTable };
+function fmtFullDateTime(str) {
+  const d = new Date(str);
+  return isNaN(d) ? "" : timeFmt.format(d); // "04 November 2020, 09:32:31 pm"
+}
+
+const inrFmt = new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  maximumFractionDigits: 0,
+});
+
+// --- Empty state toggle ---
+function toggleEmptyState(hasData) {
+  const noBanner = document.getElementById("no-reservation-banner");
+  const tableParent = document.getElementById("reservation-table-parent");
+  if (!noBanner || !tableParent) return;
+  noBanner.hidden = hasData;
+  tableParent.hidden = !hasData;
+}
+
+// --- Render ---
+export function addReservationToTable(reservations = []) {
+  const tbody = document.getElementById("reservation-table");
+  if (!tbody) return;
+
+  // clear existing
+  tbody.textContent = "";
+
+  // normalize + sort latest first
+  const list = (Array.isArray(reservations) ? reservations : [])
+    .slice()
+    .sort((a, b) => {
+      const ta = new Date(a?.time || 0).getTime();
+      const tb = new Date(b?.time || 0).getTime();
+      return tb - ta;
+    });
+
+  toggleEmptyState(list.length > 0);
+  if (!list.length) return;
+
+  const frag = document.createDocumentFragment();
+
+  list.forEach((r) => {
+    const tr = document.createElement("tr");
+
+    const tdTxn = document.createElement("th");
+    tdTxn.scope = "row";
+    tdTxn.textContent = r?.id ?? "";
+    tr.appendChild(tdTxn);
+
+    const tdName = document.createElement("td");
+    tdName.textContent = r?.name ?? "";
+    tr.appendChild(tdName);
+
+    const tdAdv = document.createElement("td");
+    tdAdv.textContent = r?.adventureName || r?.adventure || "";
+    tr.appendChild(tdAdv);
+
+    const tdPersons = document.createElement("td");
+    tdPersons.textContent = String(r?.person ?? "");
+    tr.appendChild(tdPersons);
+
+    const tdDate = document.createElement("td");
+    tdDate.textContent = r?.date ? fmtDateYMD(r.date) : "";
+    tr.appendChild(tdDate);
+
+    const tdPrice = document.createElement("td");
+    tdPrice.textContent = inrFmt.format(Number(r?.price || 0));
+    tr.appendChild(tdPrice);
+
+    const tdTime = document.createElement("td");
+    tdTime.textContent = r?.time ? fmtFullDateTime(r.time) : "";
+    tr.appendChild(tdTime);
+
+    const tdAction = document.createElement("td");
+    const a = document.createElement("a");
+    a.className = "reservation-visit-button btn btn-sm btn-primary";
+    a.id = r?.id ?? "";
+    a.href = `../detail/?adventure=${encodeURIComponent(r?.adventure || "")}`;
+    a.textContent = "Visit Adventure";
+    tdAction.appendChild(a);
+    tr.appendChild(tdAction);
+
+    frag.appendChild(tr);
+  });
+
+  tbody.appendChild(frag);
+}

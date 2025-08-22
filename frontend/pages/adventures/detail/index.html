@@ -30,11 +30,11 @@
     </nav>
     <div class="container">
         <div class="content">
-            <div class="alert alert-success" id="reserved-banner">
+            <div class="alert alert-success" id="reserved-banner" hidden>
                 Greetings! Reservation for this adventure is successful. (Click
                 <a href="../reservations/"><strong>here</strong></a>
                 to view your reservations)
-            </div>
+              </div>
             <div class="row">
                 <div class="col-lg-8">
                     <div class="adventure-detail-card mb-3">
@@ -75,8 +75,7 @@
                                     </div>
                                     <div>
                                         <input type="number" class="form-control" min="1" max="10" value="0"
-                                            name="person" required onkeyup="onPersonsChange(event)"
-                                            style="width: 100px" />
+  name="person" required oninput="onPersonsChange(event)" style="width: 100px" />
                                     </div>
                                 </div>
                                 <hr />
@@ -99,9 +98,36 @@
             </div>
         </div>
     </div>
-    <footer>
-        <div class="container">© QTrip 2020</div>
-    </footer>
+    <footer class="bg-light py-3 mt-5 border-top">
+        <div
+          class="container d-flex flex-column flex-md-row justify-content-between align-items-center"
+        >
+          <div>
+            © QTrip <span id="year"></span> · Built with ❤️ by
+            <a
+              href="https://github.com/harish"
+              target="_blank"
+              rel="noopener"
+              style="text-decoration: none"
+            >
+              Harish Rao
+            </a>
+          </div>
+          <div class="mt-2 mt-md-0">
+            <a href="mailto:harishrao1846@example.com" class="me-3">📧 Email</a>
+            <a
+              href="https://linkedin.com/in/harish"
+              target="_blank"
+              rel="noopener"
+              class="me-3"
+              >💼 LinkedIn</a
+            >
+            <a href="https://github.com/harishrao1" target="_blank" rel="noopener"
+              >👨‍💻 GitHub</a
+            >
+          </div>
+        </div>
+      </footer>
 
     <!-- Bootstrap script -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"

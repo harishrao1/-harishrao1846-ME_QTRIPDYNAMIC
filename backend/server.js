@@ -1,4 +1,3 @@
-
 const express = require("express");
 const cors = require("cors");
 const lowDb = require("lowdb");
@@ -97,49 +96,134 @@ Expects serialized form data in the format name=Roy&date=2020-10-08&person=2&adv
 If the reservation is successful, it flips the "available" key to "false" and "reserved" key to "true" for the given adventure
 */
 app.post("/reservations/new", (req, res) => {
-  const reservation = req.body;
-  if (! (reservation.name && reservation.date && reservation.person && reservation.adventure)) {
-    return res.status(400).send({
-      message: `Invalid data received`,
-    });
-  }
+  try {
+    const reservation = req.body;
 
-  const instance = db.get("detail").value();
-  const nanoid = customAlphabet("1234567890abcdef", 16);
-  let reqDate = dayjs(req.body.date);
-  let currentDate = dayjs(new Date());
+    // Basic presence checks
+    if (
+      !reservation?.name ||
+      !reservation?.date ||
+      !reservation?.person ||
+      !reservation?.adventure
+    ) {
+      return res.status(400).json({ message: "Invalid data received" });
+    }
 
-  if (reqDate > currentDate) {
+    // Parse + validate inputs
+    const nameRaw = String(reservation.name).trim();
+    const dateRaw = String(reservation.date).trim(); // YYYY-MM-DD
+    const person = Math.floor(Number(reservation.person));
+    const adventureId = String(reservation.adventure).trim();
+
+    if (
+      !nameRaw ||
+      !dateRaw ||
+      !Number.isFinite(person) ||
+      person <= 0 ||
+      !adventureId
+    ) {
+      return res.status(400).json({ message: "Invalid data received" });
+    }
+
+    // Date validation: today or future
+    const reqDate = dayjs(dateRaw, "YYYY-MM-DD", true);
+    if (!reqDate.isValid()) {
+      return res
+        .status(400)
+        .json({ message: "Invalid date format. Use YYYY-MM-DD." });
+    }
+    const today = dayjs().tz("Asia/Kolkata").startOf("day");
+    if (reqDate.isBefore(today)) {
+      return res.status(400).json({
+        message: "Date of booking is incorrect. Can't book for a past date!",
+      });
+    }
+
+    // Fetch adventure
+    const adv = db.get("detail").find({ id: adventureId }).value();
+    if (!adv) {
+      return res.status(404).json({ message: "Adventure not found" });
+    }
+
+    // Ensure capacity fields exist (for older records)
+    const capacity = Number(adv.capacity ?? 0) || 0;
+    const booked = Number(adv.booked ?? 0) || 0;
+
+    if (capacity <= 0) {
+      return res
+        .status(409)
+        .json({ message: "This adventure has no capacity configured." });
+    }
+
+    const remaining = capacity - booked;
+    if (remaining <= 0) {
+      // already sold out
+      db.get("detail")
+        .find({ id: adventureId })
+        .assign({
+          available: false,
+          reserved: true,
+        })
+        .write();
+      return res.status(409).json({ message: "Sold out." });
+    }
+
+    if (person > remaining) {
+      // not enough seats
+      return res.status(409).json({
+        message: `Only ${remaining} seat(s) left.`,
+        remaining,
+      });
+    }
+
+    // All good → confirm
+    const newBooked = booked + person;
+    const isSoldOut = newBooked >= capacity;
+
     db.get("detail")
-      .find((item) => item.id == req.body.adventure)
-      .assign({ reserved: true, available: false })
+      .find({ id: adventureId })
+      .assign({
+        booked: newBooked,
+        available: !isSoldOut,
+        reserved: isSoldOut,
+      })
       .write();
-    const costPerHead = instance.find((item) => item.id == req.body.adventure)
-      .costPerHead;
 
-    const adventureName = instance.find((item) => item.id == req.body.adventure)
-      .name;
+    const costPerHead = Number(adv.costPerHead) || 0;
+    const adventureName = adv.name;
 
-    reservation.name = reservation.name
-      .trim()
+    // Normalize name (title case)
+    const name = nameRaw
       .toLowerCase()
       .split(" ")
-      .map((i, j) => i.charAt(0).toUpperCase() + i.slice(1))
+      .filter(Boolean)
+      .map((w) => w[0].toUpperCase() + w.slice(1))
       .join(" ");
+
+    const idGen = customAlphabet("1234567890abcdef", 16);
+    const reservationId = idGen();
+
     db.get("reservations")
       .push({
-        ...reservation,
-        adventureName: adventureName,
-        price: reservation.person * costPerHead,
-        id: nanoid(),
+        id: reservationId,
+        name,
+        date: reqDate.format("YYYY-MM-DD"),
+        person,
+        adventure: adventureId,
+        adventureName,
+        price: person * costPerHead,
         time: new Date().toString(),
       })
       .write();
-    return res.json({ success: true });
-  } else {
-    return res.status(400).send({
-      message: `Date of booking is incorrect. Can't book for a past date!`,
+
+    return res.json({
+      success: true,
+      remaining: capacity - newBooked,
+      soldOut: isSoldOut,
     });
+  } catch (err) {
+    console.error("POST /reservations/new error:", err);
+    return res.status(500).json({ message: "Internal server error" });
   }
 });
 
@@ -182,58 +266,106 @@ The response is a randomly generated adventure inserted to given city
 }
 */
 app.post("/adventures/new", (req, res) => {
-  let categories = ["Beaches", "Cycling", "Hillside", "Party"];
-  let places = random_data.places;
+  try {
+    const categories = ["Beaches", "Cycling", "Hillside", "Party"];
+    const places = random_data.places || [];
+    const images_collection = random_data.images || [];
 
-  let images_collection = random_data.images;
-  let images = [];
-  for (var i = 0; i < 3; i++) {
-    let index = randomInteger(0, 100);
-    images.push(images_collection[index]);
+    // ---- Resolve city -------------------------------------------------------
+    // Prefer body.city; if absent, try to read the first available city from DB.
+    let city = (req.body?.city || "").trim();
+
+    // DB shape assumed: adventures: [ { id: "<cityId>", adventures: [] }, ... ]
+    const citiesArr = db.get("adventures").value(); // array or undefined
+
+    if (!city) {
+      if (Array.isArray(citiesArr) && citiesArr.length && citiesArr[0]?.id) {
+        city = String(citiesArr[0].id);
+      } else {
+        return res.status(400).json({
+          success: false,
+          message:
+            "No city provided and no city found in DB. Seed the DB with at least one city or pass `city` in the request body.",
+        });
+      }
+    }
+
+    // If the city row doesn't exist, create it
+    let cityRow = db.get("adventures").find({ id: city }).value();
+    if (!cityRow) {
+      cityRow = { id: city, adventures: [] };
+      db.get("adventures").push(cityRow).write();
+    }
+
+    // ---- Build adventure detail --------------------------------------------
+    // Defensive image picking: respect array length
+    const pickImage = () => {
+      if (!images_collection.length) return "";
+      const idx = randomInteger(0, images_collection.length - 1);
+      return images_collection[idx];
+    };
+
+    // collect up to 3 images (allow repeats if pool is smaller; dedupe if you want)
+    const images = Array.from(
+      { length: Math.min(3, Math.max(1, images_collection.length || 1)) },
+      () => pickImage()
+    );
+
+    const nanoid = customAlphabet("1234567890", 10);
+    const id = nanoid();
+
+    const name =
+      places.length > 0
+        ? places[Math.floor(Math.random() * places.length)]
+        : `Adventure ${id}`;
+
+    const price = randomInteger(500, 5000);
+
+    const adventureDetail = {
+      id,
+      name,
+      subtitle: "This is a mind-blowing randomly generated adventure!",
+      images,
+      content:
+        "A random paragraph can also be an excellent way for a writer to tackle writers' block. Writing block can often happen due to being stuck with a current project that the writer is trying to complete. By inserting a completely random paragraph from which to begin, it can take down some of the issues that may have been causing the writers' block in the first place.",
+      available: true,
+      reserved: false,
+      costPerHead: price,
+    };
+
+    const adventuresData = {
+      id,
+      name,
+      costPerHead: price,
+      currency: "INR",
+      image: images[Math.floor(Math.random() * images.length)] || "",
+      duration: randomInteger(1, 20),
+      category: categories[Math.floor(Math.random() * categories.length)],
+    };
+
+    // ---- Persist ------------------------------------------------------------
+    db.get("detail").push(adventureDetail).write();
+
+    const currentAdventures =
+      db.get("adventures").find({ id: city }).get("adventures").value() || [];
+
+    currentAdventures.push(adventuresData);
+
+    db.get("adventures")
+      .find({ id: city })
+      .assign({ adventures: currentAdventures })
+      .write();
+
+    // ---- Respond ------------------------------------------------------------
+    res.json({ success: true, city, ...adventuresData });
+  } catch (err) {
+    console.error("POST /adventures/new error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: err?.message || String(err),
+    });
   }
-
-  const city = req.body.city;
-  const nanoid = customAlphabet("1234567890", 10);
-  const id = nanoid();
-  const name = places[Math.floor(Math.random() * places.length)];
-  const price = randomInteger(500, 5000);
-  const adventureDetail = {
-    id: id,
-    name: name,
-    subtitle: "This is a mind-blowing randomly generated adventure!",
-    images: images,
-    content:
-      "A random paragraph can also be an excellent way for a writer to tackle writers' block. Writing block can often happen due to being stuck with a current project that the writer is trying to complete. By inserting a completely random paragraph from which to begin, it can take down some of the issues that may have been causing the writers' block in the first place. A random paragraph can also be an excellent way for a writer to tackle writers' block. Writing block can often happen due to being stuck with a current project that the writer is trying to complete. By inserting a completely random paragraph from which to begin, it can take down some of the issues that may have been causing the writers' block in the first place. A random paragraph can also be an excellent way for a writer to tackle writers' block. Writing block can often happen due to being stuck with a current project that the writer is trying to complete. By inserting a completely random paragraph from which to begin, it can take down some of the issues that may have been causing the writers' block in the first place. A random paragraph can also be an excellent way for a writer to tackle writers' block. Writing block can often happen due to being stuck with a current project that the writer is trying to complete.",
-    available: true,
-    reserved: false,
-    costPerHead: price,
-  };
-  const adventuresData = {
-    id: id,
-    name: name,
-    costPerHead: price,
-    currency: "INR",
-    image: images[Math.floor(Math.random() * images.length)],
-    duration: randomInteger(1, 20),
-    category: categories[Math.floor(Math.random() * categories.length)],
-  };
-
-  let detail = db.get("detail");
-  detail.push(adventureDetail).write();
-
-  let adventures = db
-    .get("adventures")
-    .find((item) => item.id == city)
-    .get("adventures")
-    .value();
-
-  adventures.push(adventuresData);
-  db.get("adventures")
-    .find((item) => item.id == city)
-    .assign({ adventures })
-    .write();
-
-  res.json({ success: true, ...adventuresData });
 });
 
 app.listen(process.env.PORT || PORT, () => {
